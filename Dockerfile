@@ -29,17 +29,20 @@ FROM node:23-alpine AS runner
 
 WORKDIR /app
 
-# Copy only built artifacts and prod dependencies
+# Copy only built artifacts
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
 
 ENV HOST=0.0.0.0
 ENV PORT=4321
 
 EXPOSE 4321
 
+# Install a lightweight static file server
+RUN npm install -g serve
+
+# Healthcheck to ensure the server is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:4321/ || exit 1
 
-CMD ["node", "./dist/server/entry.mjs"]
+# Use serve to serve the static files
+CMD ["serve", "-s", "dist", "-l", "4321"]

@@ -5,7 +5,6 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
-import node from '@astrojs/node';
 // import VitePWA from '@vite-pwa/astro';
 
 import { seoConfig } from './utils/seoConfig';
@@ -16,9 +15,6 @@ const srcDir = fileURLToPath(new URL('./src', import.meta.url));
 export default defineConfig({
   site: seoConfig.baseURL,
   output: 'static',
-  adapter: node({
-    mode: 'standalone',
-  }),
   integrations: [
     svelte(),
     react(),
