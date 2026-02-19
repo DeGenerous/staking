@@ -1,0 +1,45 @@
+# This workflow will build and deploy the Node.js/Astro project using Docker Compose
+# For more information about GitHub Actions workflows, see: https://docs.github.com/en/actions
+
+name: DGRS Staking CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker Compose
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            set -euo pipefail
+
+            cd ~/apps/staking || exit 1
+
+            # Ensure the working tree matches the remote main branch
+            if ! git fetch --prune origin; then
+              echo "Failed to fetch from origin. Aborting deployment."
+              exit 1
+            fi
+
+            if ! git reset --hard origin/main; then
+              echo "Failed to reset to origin/main. Aborting deployment."
+              exit 1
+            fi
+            # Build and deploy using Docker Compose
+            docker compose build
+            docker compose up -d
+
+            sleep 5
+            docker compose ps
+            docker image prune -f || true

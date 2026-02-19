@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:22-alpine AS build
+FROM node:23-alpine AS build
 
 WORKDIR /app
 
@@ -10,23 +10,39 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# Build with placeholder env vars (replaced at runtime by entrypoint)
-ENV PUBLIC_RPC_URL=__PUBLIC_RPC_URL__
-ENV PUBLIC_CHAIN_ID=__PUBLIC_CHAIN_ID__
-ENV PUBLIC_POTENTIALS_ADDRESS=__PUBLIC_POTENTIALS_ADDRESS__
-ENV PUBLIC_STAKING_ADDRESS=__PUBLIC_STAKING_ADDRESS__
-ENV PUBLIC_GRAPHQL_ENDPOINT=__PUBLIC_GRAPHQL_ENDPOINT__
+ARG PUBLIC_RPC_URL
+ARG PUBLIC_CHAIN_ID
+ARG PUBLIC_POTENTIALS_ADDRESS
+ARG PUBLIC_STAKING_ADDRESS
+ARG PUBLIC_GRAPHQL_ENDPOINT
 
-RUN pnpm build
+ENV PUBLIC_RPC_URL=$PUBLIC_RPC_URL
+ENV PUBLIC_CHAIN_ID=$PUBLIC_CHAIN_ID
+ENV PUBLIC_POTENTIALS_ADDRESS=$PUBLIC_POTENTIALS_ADDRESS
+ENV PUBLIC_STAKING_ADDRESS=$PUBLIC_STAKING_ADDRESS
+ENV PUBLIC_GRAPHQL_ENDPOINT=$PUBLIC_GRAPHQL_ENDPOINT
+
+RUN pnpm build && pnpm prune --prod
 
 # Stage 2: Serve
-FROM nginx:alpine
+FROM node:23-alpine AS runner
 
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+WORKDIR /app
 
-EXPOSE 80
+# Copy only built artifacts
+COPY --from=build /app/dist ./dist
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENV HOST=0.0.0.0
+ENV PORT=4321
+
+EXPOSE 4321
+
+# Install a lightweight static file server
+RUN npm install -g serve
+
+# Healthcheck to ensure the server is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:4321/ || exit 1
+
+# Use serve to serve the static files
+CMD ["serve", "-s", "dist", "-l", "4321"]
