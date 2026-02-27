@@ -36,7 +36,8 @@ async function relayFetch<T>(path: string, options?: RequestInit): Promise<T> {
   });
   const body = await res.json();
   if (!res.ok) {
-    throw new Error(body?.message || body?.error || `Relay error ${res.status}`);
+    const detail = body?.error?.details || body?.error || '';
+    throw new Error(body?.message ? `${body.message} ${detail}` : `Relay error ${res.status}`);
   }
   return body.data as T;
 }

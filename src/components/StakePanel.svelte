@@ -304,10 +304,13 @@
       toastStore.show('ETH sent for approval gas');
     } catch (err: any) {
       console.error(err);
-      // If already approved, treat as success.
+      // If already approved or already funded, treat as success.
       if (err?.message?.includes('already approved')) {
         approved = true;
         toastStore.show('Already approved');
+      } else if (err?.message?.includes('already sent recently')) {
+        approvalFunded.set(true);
+        toastStore.show('Approval already funded');
       } else {
         toastStore.show(err?.message || 'Failed to fund approval', 'error');
       }
