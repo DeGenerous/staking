@@ -26,8 +26,9 @@
   import {
     getUserStakingData,
     getGlobalStats,
-    getOwnedTokenIds,
+    getOwnedTokenIds as getOwnedTokenIdsFromIndexer,
   } from '@lib/indexer';
+  import { getOwnedTokenSet } from '@lib/potentials';
   import { STAKING_ADDRESS } from '@lib/contract';
   import { toastStore } from '@stores/toast.svelte';
   import { previewStaking } from '@lib/stakingPreview';
@@ -140,11 +141,36 @@
     dataStatus.set('loading');
 
     try {
-      const [ownedIds, userData, globalSnapshot] = await Promise.all([
-        getOwnedTokenIds(addr),
-        getUserStakingData(addr),
-        getGlobalStats(),
-      ]);
+      // Try indexer first, fall back to on-chain multicall if unavailable.
+      let ownedIds: number[];
+      let userData: Awaited<ReturnType<typeof getUserStakingData>>;
+      let globalSnapshot: Awaited<ReturnType<typeof getGlobalStats>>;
+      try {
+        [ownedIds, userData, globalSnapshot] = await Promise.all([
+          getOwnedTokenIdsFromIndexer(addr),
+          getUserStakingData(addr),
+          getGlobalStats(),
+        ]);
+      } catch {
+        console.warn('Indexer unavailable, falling back to on-chain reads');
+        const { ids } = await getOwnedTokenSet(addr as `0x${string}`);
+        ownedIds = ids;
+        userData = {
+          stakedNFTs: [],
+          totalVotingPower: 0n,
+          totalEffectiveVotingPower: 0n,
+          accumulatedPoints: 0,
+          currentPoints: 0,
+          pointsPerSecond: 0,
+          stakedNFTCount: 0,
+        };
+        globalSnapshot = {
+          totalVotingPower: 0n,
+          totalEffectiveVotingPower: 0n,
+          totalStakedNFTs: 0,
+          totalAccumulatedPoints: 0,
+        };
+      }
 
       const stakedTokens = userData.stakedNFTs.map(normalizeToken);
 
