@@ -8,7 +8,7 @@ const env = z
     PUBLIC_POTENTIALS_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
     PUBLIC_STAKING_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
     PUBLIC_GRAPHQL_ENDPOINT: z.string().url(),
-    PUBLIC_RELAY_API_URL: z.string().url(),
+    PUBLIC_RELAY_API_URL: z.string(),
     PUBLIC_FORWARDER_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   })
   .parse(import.meta.env);
