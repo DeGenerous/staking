@@ -8,6 +8,26 @@ import {
 
 const readProvider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
 
+const TX_TIMEOUT_MS = 120_000; // 2 minutes
+
+async function waitWithTimeout(tx: ethers.TransactionResponse) {
+  const receipt = await Promise.race([
+    tx.wait(),
+    new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error('TX_TIMEOUT')), TX_TIMEOUT_MS),
+    ),
+  ]);
+  if (!receipt || receipt.status === 0) {
+    throw new Error('Transaction reverted on-chain');
+  }
+  return receipt;
+}
+
+export async function hasEnoughEthForGas(address: string): Promise<boolean> {
+  const balance = await readProvider.getBalance(address);
+  return balance > 0n;
+}
+
 export function stakingContract(
   readerOrSigner?: ethers.Provider | ethers.Signer,
 ) {
@@ -38,10 +58,7 @@ export async function stakeTokens(
 
   const contract = stakingContract(signer);
   const tx = await contract.stake(sortedIds, sortedMonths);
-  const receipt = await tx.wait();
-  if (!receipt || receipt.status === 0) {
-    throw new Error('Staking transaction reverted on-chain');
-  }
+  await waitWithTimeout(tx);
   return { tx_hash: tx.hash };
 }
 
@@ -56,9 +73,6 @@ export async function unstakeTokens(
 
   const contract = stakingContract(signer);
   const tx = await contract.unstake(sortedIds);
-  const receipt = await tx.wait();
-  if (!receipt || receipt.status === 0) {
-    throw new Error('Unstaking transaction reverted on-chain');
-  }
+  await waitWithTimeout(tx);
   return { tx_hash: tx.hash };
 }

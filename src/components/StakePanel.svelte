@@ -19,6 +19,7 @@
     isPaused,
     stakeTokens,
     unstakeTokens,
+    hasEnoughEthForGas,
   } from '@lib/staking';
   import {
     getUserStakingData,
@@ -269,6 +270,31 @@
     );
   }
 
+  function getUserMessage(err: any, fallback: string): string {
+    const code = err?.code;
+    const msg = err?.message ?? '';
+    if (code === 'ACTION_REJECTED' || msg.includes('user rejected'))
+      return 'Transaction cancelled';
+    if (code === 'INSUFFICIENT_FUNDS' || msg.includes('insufficient funds'))
+      return 'Not enough ETH for gas fees';
+    if (msg.includes('TX_TIMEOUT'))
+      return 'Transaction is taking longer than expected. Check your wallet for status.';
+    return fallback;
+  }
+
+  async function checkBalance(addr: string): Promise<boolean> {
+    try {
+      const hasEth = await hasEnoughEthForGas(addr);
+      if (!hasEth) {
+        toastStore.show('You need ETH in your wallet to pay for gas fees', 'error');
+        return false;
+      }
+      return true;
+    } catch {
+      return true; // don't block if check fails
+    }
+  }
+
   function onRefreshClick() {
     const current = $address;
     if (!current) return;
@@ -293,6 +319,8 @@
       return;
     }
 
+    if (!(await checkBalance(current))) return;
+
     busyStore.set('approve');
 
     try {
@@ -302,7 +330,7 @@
       toastStore.show('Staking contract approved');
     } catch (err) {
       console.error(err);
-      toastStore.show('Approval transaction failed', 'error');
+      toastStore.show(getUserMessage(err, 'Approval transaction failed'), 'error');
     } finally {
       busyStore.set('idle');
     }
@@ -343,6 +371,8 @@
     const tokenIds = selection.map((token) => token.tokenId);
     const months = Array(tokenIds.length).fill(globalLockMonths);
 
+    if (!(await checkBalance(current))) return;
+
     busyStore.set('stake');
 
     try {
@@ -354,7 +384,7 @@
       await loadStakingData(current);
     } catch (err) {
       console.error(err);
-      toastStore.show('Staking failed — please try again', 'error');
+      toastStore.show(getUserMessage(err, 'Staking failed — please try again'), 'error');
     } finally {
       busyStore.set('idle');
     }
@@ -382,6 +412,8 @@
 
     const tokenIds = selection.map((token) => token.tokenId);
 
+    if (!(await checkBalance(current))) return;
+
     busyStore.set('unstake');
 
     try {
@@ -393,7 +425,7 @@
       await loadStakingData(current);
     } catch (err) {
       console.error(err);
-      toastStore.show('Unstaking failed — please try again', 'error');
+      toastStore.show(getUserMessage(err, 'Unstaking failed — please try again'), 'error');
     } finally {
       busyStore.set('idle');
     }
