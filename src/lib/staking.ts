@@ -11,12 +11,13 @@ const readProvider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
 const TX_TIMEOUT_MS = 120_000; // 2 minutes
 
 async function waitWithTimeout(tx: ethers.TransactionResponse) {
+  let timer: ReturnType<typeof setTimeout>;
   const receipt = await Promise.race([
     tx.wait(),
-    new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error('TX_TIMEOUT')), TX_TIMEOUT_MS),
-    ),
-  ]);
+    new Promise<null>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('TX_TIMEOUT')), TX_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
   if (!receipt || receipt.status === 0) {
     throw new Error('Transaction reverted on-chain');
   }
